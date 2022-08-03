@@ -24,3 +24,6 @@ magnolia-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Escript binary
+magnolia
