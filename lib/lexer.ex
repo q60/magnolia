@@ -1,10 +1,10 @@
 defmodule Lexer do
-  def scan(input, mode, line, tokens \\ [])
-  def scan([], _mode, _line, tokens) do
+  def scan(input, mode, line, position, tokens \\ [])
+  def scan([], _mode, _line, _position, tokens) do
     tokens
     |> Enum.reject(&(&1 == nil))
   end
-  def scan(input, mode, line, tokens) do
+  def scan(input, mode, line, position, tokens) do
 	  [h | t] = input
     token =
       case h do
@@ -32,17 +32,17 @@ defmodule Lexer do
                 token = add_token(next && :LE || :LT, next && "<=" || "<")
                 {String.length(token.lexeme), token}
         "\"" -> case add_string(t) do
-                  {length, :err} -> Magnolia.error(line, "unterminated string")
+                  {length, :err} -> Magnolia.error({line, position}, "unterminated string")
                                     {length, nil}
                   token          -> token
                 end
         "#"  -> comment(t)
-        # "\n" -> add_token(:SEMICOLON, ";")
+        "\n" -> {:new_line, line + 1}
         s when s in [" ", "\n", "\t", "\r"] -> nil
         _    -> cond do
                   Regex.match?(~r/\d/, h) ->
 	                  case add_number([h | t]) do
-                      {length, :err} -> Magnolia.error(line, "malformed number")
+                      {length, :err} -> Magnolia.error({line, position}, "malformed number")
                                         {length, nil}
                       token          -> token
                     end
@@ -52,20 +52,26 @@ defmodule Lexer do
                     char =
                       inspect(h)
                       |> String.replace("\"", "")
-                    Magnolia.error(line, "unexpected character: #{char}")
+                    Magnolia.error({line, position}, "unexpected character: #{char}")
                     nil
                 end
       end
 
     case token do
+      {:new_line, num} ->
+        if mode == :file do
+          scan(t, mode, num, 0, tokens)
+        else
+          scan(t, mode, line, 0, tokens)
+        end
 	    {length, :comment} ->
-        scan(Enum.drop(t, length), mode, line, tokens)
+        scan(Enum.drop(t, length), mode, line, position, tokens)
 	    {length, token} ->
-        scan(Enum.drop(t, length - 1), mode, line, tokens ++ [token])
+        scan(Enum.drop(t, length - 1), mode, line, position + length, tokens ++ [token])
       nil ->
-        scan(t, mode, line, tokens)
+        scan(t, mode, line, position + 1, tokens)
       _ ->
-        scan(t, mode, line, tokens ++ [token])
+        scan(t, mode, line, position, tokens ++ [token])
     end
   end
 

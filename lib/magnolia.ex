@@ -20,14 +20,19 @@ defmodule Magnolia do
 
   defp run(input, mode, line) do
     tokens =
-      Lexer.scan(String.graphemes(input), mode, line)
+      Lexer.scan(String.graphemes(input), mode, line, 0)
       |> inspect(pretty: true)
 
 	  IO.puts("\x1B[92m#{tokens}\x1B[0m")
   end
 
-  def error(line, string) do
-    IO.puts("  \x1B[91m#{line} | \x1B[1m#{string}\x1B[0m")
+  def error({line, position}, string) do
+    position =
+      "~-4.. B|"
+      |> :io_lib.format([position])
+      |> to_string()
+
+    IO.puts("  \x1B[91m#{line}:#{position} \x1B[1m#{string}\x1B[0m")
   end
 
   def main(args) do
