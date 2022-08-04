@@ -24,7 +24,7 @@ defmodule Magnolia do
   end
 
   def error(string) do
-	  IO.puts(:stderr, string)
+	  raise string
   end
 
   def main(args) do
