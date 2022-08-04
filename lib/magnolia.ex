@@ -6,25 +6,28 @@ defmodule Magnolia do
         System.stop()
 
       input ->
-        run(input)
+        run(input, :prompt, counter)
         prompt(counter + 1)
     end
   end
 
   defp run_file(src) do
     case File.read(src) do
-      {:ok, input} -> run(input)
+      {:ok, input} -> run(input, :file, 1)
       {:error, e}  -> IO.puts(:stderr, "error: #{e}")
     end
   end
 
-  defp run(input) do
-	  Lexer.scan(String.graphemes(input))
-    |> IO.inspect()
+  defp run(input, mode, line) do
+    tokens =
+      Lexer.scan(String.graphemes(input), mode, line)
+      |> inspect(pretty: true)
+
+	  IO.puts("\x1B[92m#{tokens}\x1B[0m")
   end
 
-  def error(string) do
-	  raise string
+  def error(line, string) do
+    IO.puts("  \x1B[91m#{line} | \x1B[1m#{string}\x1B[0m")
   end
 
   def main(args) do

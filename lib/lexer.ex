@@ -1,9 +1,10 @@
 defmodule Lexer do
-  def scan(input, tokens \\ [])
-  def scan([], tokens) do
+  def scan(input, mode, line, tokens \\ [])
+  def scan([], _mode, _line, tokens) do
     tokens
+    |> Enum.reject(&(&1 == nil))
   end
-  def scan(input, tokens) do
+  def scan(input, mode, line, tokens) do
 	  [h | t] = input
     token =
       case h do
@@ -31,37 +32,76 @@ defmodule Lexer do
                 token = add_token(next && :LE || :LT, next && "<=" || "<")
                 {String.length(token.lexeme), token}
         "\"" -> case add_string(t) do
-                  :err  -> Magnolia.error("unterminated string")
-                  token -> token
+                  {length, :err} -> Magnolia.error(line, "unterminated string")
+                                    {length, nil}
+                  token          -> token
                 end
         "#"  -> comment(t)
         # "\n" -> add_token(:SEMICOLON, ";")
-        s when s in [" ", "\n", "\t", "\r"] -> :whitespace
+        s when s in [" ", "\n", "\t", "\r"] -> nil
         _    -> cond do
                   Regex.match?(~r/\d/, h) ->
 	                  case add_number([h | t]) do
-                      :err  -> Magnolia.error("malformed number")
-                      token -> token
+                      {length, :err} -> Magnolia.error(line, "malformed number")
+                                        {length, nil}
+                      token          -> token
                     end
                   Regex.match?(~r/[a-zA-Z_]/, h) ->
                     add_identifier([h | t])
                   true ->
-                    Magnolia.error("unexpected character")
+                    char =
+                      inspect(h)
+                      |> String.replace("\"", "")
+                    Magnolia.error(line, "unexpected character: #{char}")
+                    nil
                 end
       end
 
     case token do
 	    {length, :comment} ->
-        scan(Enum.drop(t, length), tokens)
+        scan(Enum.drop(t, length), mode, line, tokens)
 	    {length, token} ->
-        scan(Enum.drop(t, length - 1), tokens ++ [token])
-      :whitespace ->
-        scan(t, tokens)
+        scan(Enum.drop(t, length - 1), mode, line, tokens ++ [token])
+      nil ->
+        scan(t, mode, line, tokens)
       _ ->
-        scan(t, tokens ++ [token])
+        scan(t, mode, line, tokens ++ [token])
     end
   end
 
+
+  defp add_token(token_type, token_lexeme) do
+	  add_token(token_type, token_lexeme, nil)
+  end
+  defp add_token(token_type, token_lexeme, token_literal) do
+    %Token{
+      type: token_type,
+      lexeme: token_lexeme,
+      literal: token_literal
+    }
+  end
+
+  defp add_string([char | next], string \\ "") do
+	  case char do
+      "\"" -> {String.length(string) + 2, add_token(:STRING, string)}
+      "\n" -> {String.length(string) + 2, :err}
+      _    -> add_string(next, string <> char)
+    end
+  end
+
+  defp add_number([char | next], number \\ "") do
+    decimal_points = (String.graphemes(number) |> Enum.frequencies())["."]
+
+	  cond do
+      Regex.match?(~r/[\d\.]/, char) ->
+        add_number(next, number <> char)
+      decimal_points != nil && decimal_points > 1 ->
+        {String.length(number), :err}
+      true ->
+        {float, _} = Float.parse(number)
+        {String.length(number), add_token(:NUMBER, float)}
+    end
+  end
 
   def add_identifier([char | next], token \\ "") do
 	  cond do
@@ -85,39 +125,6 @@ defmodule Lexer do
             _        -> :IDENTIFIER
           end
         {String.length(token), add_token(type, token)}
-    end
-  end
-
-  defp add_token(token_type, token_lexeme) do
-	  add_token(token_type, token_lexeme, nil)
-  end
-  defp add_token(token_type, token_lexeme, token_literal) do
-    %Token{
-      type: token_type,
-      lexeme: token_lexeme,
-      literal: token_literal
-    }
-  end
-
-  defp add_string([char | next], string \\ "") do
-	  case char do
-      "\"" -> {String.length(string) + 2, add_token(:STRING, string)}
-      "\n" -> :err
-      _    -> add_string(next, string <> char)
-    end
-  end
-
-  defp add_number([char | next], number \\ "") do
-    decimal_points = (String.graphemes(number) |> Enum.frequencies())["."]
-
-	  cond do
-      Regex.match?(~r/[\d\.]/, char) ->
-        add_number(next, number <> char)
-      decimal_points != nil && decimal_points > 1 ->
-        :err
-      true ->
-        {float, _} = Float.parse(number)
-        {String.length(number), add_token(:NUMBER, float)}
     end
   end
 
