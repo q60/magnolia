@@ -32,13 +32,22 @@ defmodule Lexer do
                 {String.length(token.lexeme), token}
         "\"" -> case add_string(t) do
                   :err  -> Magnolia.error("unterminated string")
-                  token -> {String.length(token.lexeme) + 2, token}
+                  token -> token
                 end
-        "#"  -> length = comment(t)
-                {length, :comment}
-        "\n" -> add_token(:SEMICOLON, ";")
-        s when s in [" ", "\t", "\r"] -> :whitespace
-        _    -> Magnolia.error("unexpected character")
+        "#"  -> comment(t)
+        # "\n" -> add_token(:SEMICOLON, ";")
+        s when s in [" ", "\n", "\t", "\r"] -> :whitespace
+        _    -> cond do
+                  Regex.match?(~r/\d/, h) ->
+	                  case add_number([h | t]) do
+                      :err  -> Magnolia.error("malformed number")
+                      token -> token
+                    end
+                  Regex.match?(~r/[a-zA-Z_]/, h) ->
+                    add_identifier([h | t])
+                  true ->
+                    Magnolia.error("unexpected character")
+                end
       end
 
     case token do
@@ -50,6 +59,32 @@ defmodule Lexer do
         scan(t, tokens)
       _ ->
         scan(t, tokens ++ [token])
+    end
+  end
+
+
+  def add_identifier([char | next], token \\ "") do
+	  cond do
+      Regex.match?(~r/[a-zA-Z\d_]/, char) ->
+        add_identifier(next, token <> char)
+      true ->
+        type =
+          case token do
+	          "and"    -> :AND
+		        "or"     -> :OR
+            "if"     -> :IF
+            "else"   -> :ELSE
+            "while"  -> :WHILE
+            "for"    -> :FOR
+            "true"   -> :TRUE
+            "false"  -> :FALSE
+            "nil"    -> :NIL
+            "print"  -> :PRINT
+            "var"    -> :VAR
+            "return" -> :RETURN
+            _        -> :IDENTIFIER
+          end
+        {String.length(token), add_token(type, token)}
     end
   end
 
@@ -66,17 +101,31 @@ defmodule Lexer do
 
   defp add_string([char | next], string \\ "") do
 	  case char do
-      "\"" -> add_token(:STRING, string)
+      "\"" -> {String.length(string) + 2, add_token(:STRING, string)}
       "\n" -> :err
       _    -> add_string(next, string <> char)
     end
   end
 
+  defp add_number([char | next], number \\ "") do
+    decimal_points = (String.graphemes(number) |> Enum.frequencies())["."]
+
+	  cond do
+      Regex.match?(~r/[\d\.]/, char) ->
+        add_number(next, number <> char)
+      decimal_points != nil && decimal_points > 1 ->
+        :err
+      true ->
+        {float, _} = Float.parse(number)
+        {String.length(number), add_token(:NUMBER, float)}
+    end
+  end
+
   defp comment([char | next], length \\ 0) do
-      case char do
-        "\n" -> length
-        _    -> comment(next, length + 1)
-      end
+    case char do
+      "\n" -> {length, :comment}
+      _    -> comment(next, length + 1)
+    end
   end
 
   defp match_next(char, [next | _]) do
