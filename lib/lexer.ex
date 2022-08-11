@@ -3,6 +3,7 @@ defmodule Lexer do
   def scan([], _mode, _line, _position, tokens) do
     tokens
     |> Enum.reject(&(&1 == nil))
+    |> add_seqs()
   end
   def scan(input, mode, line, position, tokens) do
 	  [h | t] = input
@@ -19,42 +20,62 @@ defmodule Lexer do
         "*"  -> add_token(:MUL, h)
         "/"  -> add_token(:DIV, h)
         ";"  -> add_token(:SEMICOLON, ";")
-        "!"  -> next = match_next("=", t)
-                token = add_token(next && :NEQ || :NOT, next && "!=" || "!")
-                {String.length(token.lexeme), token}
-        "="  -> next = match_next("=", t)
-                token = add_token(next && :EQ || :ASSIGN, next && "==" || "=")
-                {String.length(token.lexeme), token}
-        ">"  -> next = match_next("=", t)
-                token = add_token(next && :GE || :GT, next && ">=" || ">")
-                {String.length(token.lexeme), token}
-        "<"  -> next = match_next("=", t)
-                token = add_token(next && :LE || :LT, next && "<=" || "<")
-                {String.length(token.lexeme), token}
-        "\"" -> case add_string(t) do
-                  {length, :err} -> Magnolia.error({line, position}, "unterminated string")
-                                    {length, nil}
-                  token          -> token
-                end
+        "!"  ->
+          next = match_next("=", t)
+          token = add_token(next && :NEQ || :NOT, next && "!=" || "!")
+          {String.length(token.lexeme), token}
+        "="  ->
+          next = match_next("=", t)
+          token = add_token(next && :EQ || :ASSIGN, next && "==" || "=")
+          {String.length(token.lexeme), token}
+        ">"  ->
+          next = match_next("=", t)
+          token = add_token(next && :GE || :GT, next && ">=" || ">")
+          {String.length(token.lexeme), token}
+        "<"  ->
+          next = match_next("=", t)
+          token = add_token(next && :LE || :LT, next && "<=" || "<")
+          {String.length(token.lexeme), token}
+        "\"" ->
+          case add_string(t) do
+            {length, :err} ->
+              Magnolia.error({line, position}, "unterminated string")
+              {length, nil}
+            token ->
+              token
+          end
         "#"  -> comment(t)
         "\n" -> {:new_line, line + 1}
         s when s in [" ", "\n", "\t", "\r"] -> nil
-        _    -> cond do
-                  Regex.match?(~r/\d/, h) ->
-	                  case add_number([h | t]) do
-                      {length, :err} -> Magnolia.error({line, position}, "malformed number")
-                                        {length, nil}
-                      token          -> token
-                    end
-                  Regex.match?(~r/[a-zA-Z_]/, h) ->
-                    add_identifier([h | t])
-                  true ->
-                    char =
-                      inspect(h)
-                      |> String.replace("\"", "")
-                    Magnolia.error({line, position}, "unexpected character: #{char}")
-                    nil
+        _    ->
+          cond do
+            Regex.match?(~r/\d/, h) ->
+              [base_char | next] = t
+              base = %{"x" => 16, "o" => 8, "b" => 2}[base_char]
+              number =
+                if base == nil do
+                  add_number([h | t], 10)
+                else
+                  {length, num} = add_number(next, base)
+                  {length + 2, num}
                 end
+	            case number do
+                {length, :err} ->
+                  Magnolia.error({line, position}, "malformed number")
+                  {length, nil}
+                token ->
+                  token
+              end
+
+            Regex.match?(~r/[a-zA-Z_@]/, h) ->
+              add_identifier([h | t])
+
+            true ->
+              char = String.replace(inspect(h), "\"", "")
+
+              Magnolia.error({line, position}, "unexpected character: #{char}")
+              nil
+          end
       end
 
     case token do
@@ -77,41 +98,62 @@ defmodule Lexer do
 
 
   defp add_token(token_type, token_lexeme) do
-	  add_token(token_type, token_lexeme, nil)
-  end
-  defp add_token(token_type, token_lexeme, token_literal) do
     %Token{
       type: token_type,
-      lexeme: token_lexeme,
-      literal: token_literal
+      lexeme: token_lexeme
     }
   end
 
-  defp add_string([char | next], string \\ "") do
+  defp add_seqs(tokens, result \\ [])
+  defp add_seqs([], result), do: result
+  defp add_seqs([token | next], result) do
+    case token.type do
+	    :LBRACE ->
+        {num_tokens, list} = add_list(next)
+        add_seqs(Enum.drop(next, num_tokens + 1), result ++ [list])
+		  _       ->
+        add_seqs(next, result ++ [token])
+    end
+  end
+
+  defp add_list(chars, list \\ [])
+  defp add_list([], _), do: :err
+  defp add_list([token | next], list) do
+	  case token.type do
+      :RBRACE -> {length(list), add_token(:LIST, list |> Enum.drop(0))}
+      _       -> add_list(next, list ++ [token.lexeme])
+    end
+  end
+
+  defp add_string(chars, string \\ "")
+  defp add_string([], string), do: {String.length(string) + 2, :err}
+  defp add_string([char | next], string) do
 	  case char do
       "\"" -> {String.length(string) + 2, add_token(:STRING, string)}
-      "\n" -> {String.length(string) + 2, :err}
       _    -> add_string(next, string <> char)
     end
   end
 
-  defp add_number([char | next], number \\ "") do
+  defp add_number([char | next], base, number \\ "") do
     decimal_points = (String.graphemes(number) |> Enum.frequencies())["."]
 
 	  cond do
       Regex.match?(~r/[\d\.]/, char) ->
-        add_number(next, number <> char)
+        add_number(next, base, number <> char)
       decimal_points != nil && decimal_points > 1 ->
         {String.length(number), :err}
-      true ->
+      decimal_points != nil && decimal_points == 1 ->
         {float, _} = Float.parse(number)
         {String.length(number), add_token(:NUMBER, float)}
+      true ->
+        {integer, _} = Integer.parse(number, base)
+        {String.length(number), add_token(:NUMBER, integer)}
     end
   end
 
-  def add_identifier([char | next], token \\ "") do
+  defp add_identifier([char | next], token \\ "") do
 	  cond do
-      Regex.match?(~r/[a-zA-Z\d_]/, char) ->
+      Regex.match?(~r/[a-zA-Z\.\d_@]/, char) ->
         add_identifier(next, token <> char)
       true ->
         type =
@@ -119,15 +161,15 @@ defmodule Lexer do
 	          "and"    -> :AND
 		        "or"     -> :OR
             "if"     -> :IF
-            "else"   -> :ELSE
             "while"  -> :WHILE
             "for"    -> :FOR
             "true"   -> :TRUE
             "false"  -> :FALSE
-            "nil"    -> :NIL
             "print"  -> :PRINT
-            "var"    -> :VAR
-            "return" -> :RETURN
+            "drop"   -> :DROP
+            "swap"   -> :SWAP
+            "dup"    -> :DUP
+            "rep"    -> :REP
             _        -> :IDENTIFIER
           end
         {String.length(token), add_token(type, token)}

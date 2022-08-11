@@ -1,29 +1,31 @@
 defmodule Magnolia do
-  defp prompt(counter \\ 1) do
+  defp prompt(counter, stack \\ []) do
     case IO.gets("\x1B[93m#{counter}\x1B[0m> ") do
       :eof ->
         IO.puts("stopped")
         System.stop()
 
       input ->
-        run(input, :prompt, counter)
-        prompt(counter + 1)
+        IO.write("\n")
+        stack = run(input, :prompt, counter, stack)
+        prompt(counter + 1, stack)
     end
   end
 
   defp run_file(src) do
     case File.read(src) do
-      {:ok, input} -> run(input, :file, 1)
+      {:ok, input} -> run(input <> "\n", :file, 1)
       {:error, e}  -> IO.puts(:stderr, "error: #{e}")
     end
   end
 
-  defp run(input, mode, line) do
-    tokens =
-      Lexer.scan(String.graphemes(input), mode, line, 0)
-      |> inspect(pretty: true)
+  defp run(input, mode, line, stack \\ []) do
+    tokens = Lexer.scan(String.graphemes(input), mode, line, 0)
+    stack = Parser.eval(tokens, stack)
 
-	  IO.puts("\x1B[92m#{tokens}\x1B[0m")
+	  # IO.puts("\ntokens:\n\x1B[92m#{tokens |> inspect(pretty: true)}\x1B[0m")
+	  IO.puts("stack:\n\x1B[92m#{stack |> Enum.reverse |> Enum.join("\n")}\x1B[0m")
+    stack
   end
 
   def error({line, position}, string) do
@@ -37,7 +39,7 @@ defmodule Magnolia do
 
   def main(args) do
     case args do
-      []    -> prompt()
+      []    -> prompt(1)
       [src] -> run_file(src)
       _     -> IO.puts("\x1B[93musage:\x1B[0m magnolia [file]")
     end
