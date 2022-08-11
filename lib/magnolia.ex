@@ -1,6 +1,6 @@
 defmodule Magnolia do
   defp prompt(counter, stack \\ []) do
-    case IO.gets("\x1B[93m#{counter}\x1B[0m> ") do
+    case IO.gets("    \x1B[33m#{counter}.\x1B[0m \x1B[35m\x1B[1mλ\x1B[0m ") do
       :eof ->
         IO.puts("stopped")
         System.stop()
