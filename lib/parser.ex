@@ -6,11 +6,7 @@ defmodule Parser do
   end
 	def eval([token | next], stack) do
     case token.type do
-      :STRING ->
-        eval(next, [token.lexeme | stack])
-      :LIST   ->
-        eval(next, [token.lexeme | stack])
-      :NUMBER ->
+      type when type in [:STRING, :LIST, :TUPLE, :NUMBER] ->
         eval(next, [token.lexeme | stack])
       :ADD    ->
         a = Enum.at(stack, 1)
@@ -51,29 +47,10 @@ defmodule Parser do
       :IDENTIFIER ->
         case String.first(token.lexeme) do
 	        "@" ->
-            identifier =
-              Regex.scan(~r/[a-z_]+/i, token.lexeme)
-              |> List.flatten()
-            module =
-              Enum.drop(identifier, -1)
-              |> Enum.map(
-            fn module ->
-              case module do
-                "io" -> "IO"
-                _    -> String.capitalize(module)
-              end
-            end
+            eval(
+              next,
+              Parser.Identifiers.eval_native(token, stack)
             )
-            |> Enum.join(".")
-
-            func = List.last(identifier) |> String.downcase()
-            args =
-              List.first(stack)
-              |> inspect()
-              |> String.replace(["[", "]"], "")
-
-            {res, _} = Code.eval_string("#{module}.#{func}(#{args})")
-            eval(next, [res | Enum.drop(stack, 1)])
         end
       _       ->
         eval(next, stack)

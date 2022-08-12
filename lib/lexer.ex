@@ -13,13 +13,20 @@ defmodule Lexer do
         ")"  -> add_token(:RPAREN, h)
         "{"  -> add_token(:LBRACE, h)
         "}"  -> add_token(:RBRACE, h)
+        ":"  -> add_token(:COLON, h)
+        "["  -> add_token(:LBRACKET, h)
+        "]"  -> add_token(:RBRACKET, h)
         ","  -> add_token(:COMMA, h)
         "."  -> add_token(:DOT, h)
         "+"  -> add_token(:ADD, h)
-        "-"  -> add_token(:SUB, h)
+        # "-"  -> add_token(:SUB, h)
+        "-"  ->
+          next = match_next(">", t)
+          token = add_token(next && :ARROW || :SUB, next && "->" || "-")
+          {String.length(token.lexeme), token}
         "*"  -> add_token(:MUL, h)
         "/"  -> add_token(:DIV, h)
-        ";"  -> add_token(:SEMICOLON, ";")
+        ";"  -> add_token(:SEMICOLON, h)
         "!"  ->
           next = match_next("=", t)
           token = add_token(next && :NEQ || :NOT, next && "!=" || "!")
@@ -108,11 +115,39 @@ defmodule Lexer do
   defp add_seqs([], result), do: result
   defp add_seqs([token | next], result) do
     case token.type do
-	    :LBRACE ->
+	    :LBRACE   ->
         {num_tokens, list} = add_list(next)
         add_seqs(Enum.drop(next, num_tokens + 1), result ++ [list])
-		  _       ->
+	    :LPAREN   ->
+        {num_tokens, tuple} = add_tuple(next)
+        add_seqs(Enum.drop(next, num_tokens + 1), result ++ [tuple])
+	    :LBRACKET ->
+        {num_tokens, spec} = add_spec(next)
+        add_seqs(Enum.drop(next, num_tokens + 1), result ++ [spec])
+		  _         ->
         add_seqs(next, result ++ [token])
+    end
+  end
+
+  defp add_spec(chars, spec \\ [])
+  defp add_spec([], _), do: :err
+  defp add_spec([token | next], spec) do
+	  case token.type do
+      :RBRACKET ->
+        {a, b, _} =
+          Enum.reduce(spec, {0, 0, 0},
+            fn x, {a, b, i} ->
+              cond do
+	              x == "->" -> {a, a, i + 1}
+                true      -> {a + 1, b, i + 1}
+              end
+            end
+          )
+        {
+          length(spec),
+          add_token(:SPEC, [in: b, out: a - b])
+        }
+      _         -> add_spec(next, spec ++ [token.lexeme])
     end
   end
 
@@ -120,8 +155,17 @@ defmodule Lexer do
   defp add_list([], _), do: :err
   defp add_list([token | next], list) do
 	  case token.type do
-      :RBRACE -> {length(list), add_token(:LIST, list |> Enum.drop(0))}
+      :RBRACE -> {length(list), add_token(:LIST, list)}
       _       -> add_list(next, list ++ [token.lexeme])
+    end
+  end
+
+  defp add_tuple(chars, list \\ [])
+  defp add_tuple([], _), do: :err
+  defp add_tuple([token | next], list) do
+	  case token.type do
+      :RPAREN -> {length(list), add_token(:TUPLE, List.to_tuple(list))}
+      _       -> add_tuple(next, list ++ [token.lexeme])
     end
   end
 
