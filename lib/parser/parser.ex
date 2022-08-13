@@ -140,13 +140,43 @@ defmodule Parser do
         eval(next, stack, dict)
 
       :REP ->
+        lambda = Enum.at(stack, 1)
         n = Enum.at(stack, 0)
-        str = Enum.at(stack, 1)
-        eval(next, [String.duplicate(str, n) | Enum.drop(stack, 2)], dict)
+
+        [_ | t] =
+          for _ <- 1..(n) do
+            eval(lambda, Enum.drop(stack, 1), dict)
+          end
+
+        {stack, dict} = List.last(t)
+        eval(next, Enum.drop(stack, 1), dict)
+
+      :PRIN ->
+        str = Enum.at(stack, 0)
+        IO.write(str)
+        eval(next, Enum.drop(stack, 1), dict)
 
       :PRINT ->
-        IO.puts(List.first(stack))
+        str = Enum.at(stack, 0)
+        IO.puts(str)
         eval(next, Enum.drop(stack, 1), dict)
+
+      :FORMAT ->
+        str = Enum.at(stack, 1)
+        format = Enum.at(stack, 0)
+        :io.format(str, format)
+        eval(next, Enum.drop(stack, 2), dict)
+
+      :USE ->
+        str = Enum.at(stack, 0)
+        {_, lib} =
+          File.read!("src/#{str}.mg")
+          |> String.graphemes()
+          |> Lexer.scan(:file, 1, 0)
+          |> Parser.parse()
+          |> Parser.eval()
+
+        eval(next, Enum.drop(stack, 1), Map.merge(dict, lib))
 
       :IDENTIFIER ->
         case String.first(token.lexeme) do

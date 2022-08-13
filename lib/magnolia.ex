@@ -57,6 +57,10 @@ defmodule Magnolia do
     {stack, dict}
   end
 
+  def error(string) do
+    IO.puts("#{String.duplicate(" ", 8)}\x1B[91m| \x1B[1m#{string}\x1B[0m")
+  end
+
   def error({line, position}, string) do
     position =
       "~-4.. B|"

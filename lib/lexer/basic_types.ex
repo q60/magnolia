@@ -48,7 +48,10 @@ defmodule Lexer.BasicTypes do
             "for" -> :FOR
             "true" -> :TRUE
             "false" -> :FALSE
+            "prin" -> :PRIN
             "print" -> :PRINT
+            "format" -> :FORMAT
+            "use" -> :USE
             "call" -> :CALL
             "clear" -> :CLEAR
             "drop" -> :DROP
