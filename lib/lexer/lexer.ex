@@ -45,9 +45,19 @@ defmodule Lexer do
           Token.add(:ADD, h)
 
         "-" ->
-          next = Helpers.match_next(">", t)
-          token = Token.add((next && :ARROW) || :SUB, (next && "->") || "-")
-          {String.length(token.lexeme), token}
+          [next | t] = t
+
+          cond do
+            next == ">" ->
+              {2, Token.add(:ARROW, "->")}
+
+            next =~ ~r/\d/ ->
+              {length, number} = BasicTypes.add_number(next, t, -1, line, position)
+              {length + 1, number}
+
+            true ->
+              {1, Token.add(:SUB, "-")}
+          end
 
         "*" ->
           Token.add(:MUL, h)
@@ -97,28 +107,10 @@ defmodule Lexer do
 
         _ ->
           cond do
-            Regex.match?(~r/\d/, h) ->
-              [base_char | next] = t
-              base = %{"x" => 16, "o" => 8, "b" => 2}[base_char]
+            h =~ ~r/\d/ ->
+              BasicTypes.add_number(h, t, 1, line, position)
 
-              number =
-                if base == nil do
-                  BasicTypes.add_number([h | t], 10)
-                else
-                  {length, num} = BasicTypes.add_number(next, base)
-                  {length + 2, num}
-                end
-
-              case number do
-                {length, :err} ->
-                  Magnolia.error({line, position}, "malformed number")
-                  {length, nil}
-
-                token ->
-                  token
-              end
-
-            Regex.match?(~r/[a-zA-Z_@]/, h) ->
+            h =~ ~r/[a-zA-Z_@]/ ->
               BasicTypes.add_identifier([h | t])
 
             true ->
