@@ -43,11 +43,16 @@ defmodule Magnolia do
       end)
       |> Enum.join("\n")
 
+    padding =
+      Map.keys(dict)
+      |> Enum.max_by(&String.length/1)
+      |> String.length()
+
     dict_pretty =
       Map.to_list(dict)
       |> Enum.map(fn {k, v} ->
         {{_, spec}, _} = v
-        "#{:io_lib.format("~-10.. s", [k])}#{spec}"
+        "#{:io_lib.format("~-*.. s", [padding + 2, k])}#{spec}"
       end)
       |> Enum.join("\n")
 

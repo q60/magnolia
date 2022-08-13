@@ -31,13 +31,21 @@ defmodule Parser.Identifiers do
     args =
       List.first(stack)
       |> inspect()
-      |> String.replace(["[", "]"], "")
+
+    args =
+      cond do
+        args =~ ~r/\[.*\]/ ->
+          String.slice(args, 1..-2)
+
+        true ->
+          args
+      end
 
     module_check =
       case Code.string_to_quoted!(module) do
         {_, _, [Elixir | modules]} ->
           if List.first(modules) in [:Magnolia, :Lexer, :Parser, :Token] do
-	          Magnolia.error("undefined module")
+            Magnolia.error("undefined module")
             :err
           else
             true
@@ -52,8 +60,8 @@ defmodule Parser.Identifiers do
         stack
 
       _ ->
-      {res, _} = Code.eval_string("#{module}.#{func}(#{args})")
-      [res | Enum.drop(stack, 1)]
+        {res, _} = Code.eval_string("#{module}.#{func}(#{args})")
+        [res | Enum.drop(stack, 1)]
     end
   end
 end

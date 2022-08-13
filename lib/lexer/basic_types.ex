@@ -56,7 +56,7 @@ defmodule Lexer.BasicTypes do
 
   def add_identifier([char | next], token \\ "") do
     cond do
-      char =~ ~r/[a-zA-Z\.\d_@]/ ->
+      char =~ ~r/[a-zA-Z\.\d_\->@]/ ->
         add_identifier(next, token <> char)
 
       true ->

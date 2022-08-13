@@ -4,7 +4,7 @@ defmodule Magnolia.MixProject do
   def project do
     [
       app: :magnolia,
-      version: "0.5.1",
+      version: "0.5.2",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps(),

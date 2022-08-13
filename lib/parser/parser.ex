@@ -38,6 +38,7 @@ defmodule Parser do
           cond do
             is_number(a) && is_number(b) -> a + b
             is_binary(a) && is_binary(b) -> a <> b
+            is_list(a) -> a ++ [b]
           end
 
         eval(next, [res | Enum.drop(stack, 2)], dict)
@@ -144,7 +145,7 @@ defmodule Parser do
         n = Enum.at(stack, 0)
 
         [_ | t] =
-          for _ <- 1..(n) do
+          for _ <- 1..n do
             eval(lambda, Enum.drop(stack, 1), dict)
           end
 
@@ -169,6 +170,7 @@ defmodule Parser do
 
       :USE ->
         str = Enum.at(stack, 0)
+
         {_, lib} =
           File.read!("src/#{str}.mg")
           |> String.graphemes()
