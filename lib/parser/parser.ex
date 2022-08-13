@@ -2,7 +2,6 @@ defmodule Parser do
   alias Parser.ComplexTypes
   alias Parser.Identifiers
 
-
   def parse(tokens) do
     tokens
     |> ComplexTypes.add_seqs()
@@ -10,96 +9,122 @@ defmodule Parser do
   end
 
   def eval(tokens, stack \\ [], dict \\ %{})
+
   def eval([], stack, dict) do
     {stack
-     |> Enum.reject(&(&1 == nil)),
-     dict}
+     |> Enum.reject(&(&1 == nil)), dict}
   end
-	def eval([token | next], stack, dict) do
+
+  def eval([token | next], stack, dict) do
     case token.type do
       type when type in [:STRING, :LIST, :TUPLE, :NUMBER] ->
         eval(next, [token.lexeme | stack], dict)
+
       type when type in [:TRUE, :FALSE] ->
         eval(next, [String.to_atom(token.lexeme) | stack], dict)
-      :WORD   ->
+
+      :WORD ->
         {name, spec, code} = token.lexeme
         eval(next, stack, Map.put(dict, name, {spec, code}))
+
       :LAMBDA ->
         eval(next, [token.lexeme | stack], dict)
-      :ADD    ->
+
+      :ADD ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
+
         res =
           cond do
-	          is_number(a) && is_number(b) -> a + b
+            is_number(a) && is_number(b) -> a + b
             is_binary(a) && is_binary(b) -> a <> b
           end
+
         eval(next, [res | Enum.drop(stack, 2)], dict)
-      :SUB    ->
+
+      :SUB ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a - b | Enum.drop(stack, 2)], dict)
-      :MUL    ->
+
+      :MUL ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a * b | Enum.drop(stack, 2)], dict)
-      :EQ     ->
+
+      :EQ ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a == b | Enum.drop(stack, 2)], dict)
-      :NEQ    ->
+
+      :NEQ ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a != b | Enum.drop(stack, 2)], dict)
-      :GT     ->
+
+      :GT ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a > b | Enum.drop(stack, 2)], dict)
-      :LT     ->
+
+      :LT ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a < b | Enum.drop(stack, 2)], dict)
-      :GE     ->
+
+      :GE ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a >= b | Enum.drop(stack, 2)], dict)
-      :LE     ->
+
+      :LE ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a <= b | Enum.drop(stack, 2)], dict)
-      :AND    ->
+
+      :AND ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a && b | Enum.drop(stack, 2)], dict)
-      :OR     ->
+
+      :OR ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a || b | Enum.drop(stack, 2)], dict)
-      :NOT    ->
+
+      :NOT ->
         a = Enum.at(stack, 0)
         eval(next, [!a | Enum.drop(stack, 2)], dict)
-      :DIV    ->
+
+      :DIV ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a / b | Enum.drop(stack, 2)], dict)
-	    :CLEAR  ->
+
+      :CLEAR ->
         eval(next, [], dict)
-	    :DROP   ->
+
+      :DROP ->
         eval(next, Enum.drop(stack, 1), dict)
-	    :DUP    ->
+
+      :DUP ->
         eval(next, [Enum.at(stack, 0) | stack], dict)
-	    :SWAP   ->
+
+      :SWAP ->
         a = Enum.at(stack, 0)
         b = Enum.at(stack, 1)
         eval(next, [b, a] ++ Enum.drop(stack, 2), dict)
-      :OVER   ->
+
+      :OVER ->
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a, b, a] ++ Enum.drop(stack, 2), dict)
-      :IF     ->
+
+      :IF ->
         bool = Enum.at(stack, 2)
         if_true = Enum.at(stack, 1)
         if_false = Enum.at(stack, 0)
+
         {stack, dict} =
           if bool do
             eval(if_true, Enum.drop(stack, 3), dict)
@@ -108,31 +133,37 @@ defmodule Parser do
           end
 
         eval(next, stack, dict)
-      :CALL   ->
+
+      :CALL ->
         lambda = Enum.at(stack, 0)
         {stack, dict} = eval(lambda, Enum.drop(stack, 1), dict)
         eval(next, stack, dict)
-	    :REP    ->
+
+      :REP ->
         n = Enum.at(stack, 0)
         str = Enum.at(stack, 1)
         eval(next, [String.duplicate(str, n) | Enum.drop(stack, 2)], dict)
-	    :PRINT  ->
+
+      :PRINT ->
         IO.puts(List.first(stack))
         eval(next, Enum.drop(stack, 1), dict)
+
       :IDENTIFIER ->
         case String.first(token.lexeme) do
-	        "@" ->
+          "@" ->
             eval(
               next,
               Identifiers.eval_native(token, stack),
               dict
             )
-          _   ->
+
+          _ ->
             {_spec, tokens} = dict[token.lexeme]
             {stack, dict} = eval(tokens, stack, dict)
             eval(next, stack, dict)
         end
-      _       ->
+
+      _ ->
         eval(next, stack, dict)
     end
   end

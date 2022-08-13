@@ -6,7 +6,7 @@ defmodule Lexer.Helpers do
   def comment([char | next], length \\ 0) do
     case char do
       "\n" -> {length, :comment}
-      _    -> comment(next, length + 1)
+      _ -> comment(next, length + 1)
     end
   end
 end

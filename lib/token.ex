@@ -1,7 +1,5 @@
 defmodule Token do
-	defstruct [:type,
-             :lexeme,
-             :line]
+  defstruct [:type, :lexeme, :line]
 
   def add(token_type, token_lexeme) do
     %Token{

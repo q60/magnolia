@@ -14,7 +14,7 @@ defmodule Magnolia do
   defp run_file(src) do
     case File.read(src) do
       {:ok, input} -> run(input <> "\n", :file, 1)
-      {:error, e}  -> IO.puts(:stderr, "error: #{e}")
+      {:error, e} -> IO.puts(:stderr, "error: #{e}")
     end
   end
 
@@ -23,39 +23,36 @@ defmodule Magnolia do
       String.graphemes(input)
       |> Lexer.scan(mode, line, 0)
       |> Parser.parse()
-	  # IO.puts("\ntokens:\n\x1B[92m#{tokens |> inspect(pretty: true)}\x1B[0m")
+
+    # IO.puts("\ntokens:\n\x1B[92m#{tokens |> inspect(pretty: true)}\x1B[0m")
 
     {stack, dict} = Parser.eval(tokens, stack, dict)
 
     stack_pretty =
       Enum.reverse(stack)
-      |> Enum.map(
-        fn elem ->
-          cond do
-            is_list(elem) and is_struct(List.first(elem)) ->
-              "λ: " <> (
-	              Enum.map(elem, &(&1.lexeme))
-                |> inspect()
-              )
-            true ->
-              inspect(elem)
-          end
+      |> Enum.map(fn elem ->
+        cond do
+          is_list(elem) and is_struct(List.first(elem)) ->
+            "λ: " <>
+              (Enum.map(elem, & &1.lexeme)
+               |> inspect())
+
+          true ->
+            inspect(elem)
         end
-      )
+      end)
       |> Enum.join("\n")
 
     dict_pretty =
       Map.to_list(dict)
-      |> Enum.map(
-        fn {k, v} ->
-          {{_, spec}, _} = v
-          "#{:io_lib.format("~-10.. s", [k])}#{spec}"
-        end
-      )
+      |> Enum.map(fn {k, v} ->
+        {{_, spec}, _} = v
+        "#{:io_lib.format("~-10.. s", [k])}#{spec}"
+      end)
       |> Enum.join("\n")
 
-	  IO.puts("\ndictionary:\n\x1B[35m#{dict_pretty}\x1B[0m")
-	  IO.puts("stack:\n\x1B[35m#{stack_pretty}\x1B[0m")
+    IO.puts("\ndictionary:\n\x1B[35m#{dict_pretty}\x1B[0m")
+    IO.puts("stack:\n\x1B[35m#{stack_pretty}\x1B[0m")
 
     {stack, dict}
   end
@@ -79,9 +76,9 @@ defmodule Magnolia do
       |> Parser.eval()
 
     case args do
-      []    -> prompt(1, {[], dict})
+      [] -> prompt(1, {[], dict})
       [src] -> run_file(src)
-      _     -> IO.puts("\x1B[93musage:\x1B[0m magnolia [file]")
+      _ -> IO.puts("\x1B[93musage:\x1B[0m magnolia [file]")
     end
   end
 end
