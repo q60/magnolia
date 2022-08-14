@@ -1,4 +1,6 @@
 defmodule Lexer.BasicTypes do
+  use Rational
+
   def add_string(chars, string \\ "")
   def add_string([], string), do: {String.length(string) + 2, :err}
 
@@ -38,7 +40,7 @@ defmodule Lexer.BasicTypes do
     decimal_points = (String.graphemes(number) |> Enum.frequencies())["."]
 
     cond do
-      char =~ ~r/[\d\.]/ ->
+      char =~ ~r/[\d\.\/]/ ->
         add_number(next, base, sign, number <> char)
 
       decimal_points != nil && decimal_points > 1 ->
@@ -49,8 +51,13 @@ defmodule Lexer.BasicTypes do
         {String.length(number), Token.add(:NUMBER, sign * float)}
 
       true ->
-        {integer, _} = Integer.parse(number, base)
-        {String.length(number), Token.add(:NUMBER, sign * integer)}
+        if number =~ ~r/\// do
+          rational = Rational.sigil_n(number, [])
+          {String.length(number), Token.add(:NUMBER, sign * rational)}
+        else
+          {integer, _} = Integer.parse(number, base)
+          {String.length(number), Token.add(:NUMBER, sign * integer)}
+        end
     end
   end
 

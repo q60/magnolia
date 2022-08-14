@@ -65,6 +65,9 @@ defmodule Lexer do
         "/" ->
           Token.add(:DIV, h)
 
+        "^" ->
+          Token.add(:POW, h)
+
         ";" ->
           Token.add(:SEMICOLON, h)
 

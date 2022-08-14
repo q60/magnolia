@@ -1,6 +1,7 @@
 defmodule Parser do
   alias Parser.ComplexTypes
   alias Parser.Identifiers
+  use Rational
 
   def parse(tokens) do
     tokens
@@ -37,6 +38,7 @@ defmodule Parser do
         res =
           cond do
             is_number(a) && is_number(b) -> a + b
+            is_rational(a) && is_rational(b) -> a + b
             is_binary(a) && is_binary(b) -> a <> b
             is_list(a) -> a ++ [b]
           end
@@ -52,6 +54,11 @@ defmodule Parser do
         a = Enum.at(stack, 1)
         b = Enum.at(stack, 0)
         eval(next, [a * b | Enum.drop(stack, 2)], dict)
+
+      :POW ->
+        a = Enum.at(stack, 1)
+        b = Enum.at(stack, 0)
+        eval(next, [a ** b | Enum.drop(stack, 2)], dict)
 
       :EQ ->
         a = Enum.at(stack, 1)
