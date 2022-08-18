@@ -43,7 +43,7 @@ defmodule Lexer.BasicTypes do
       char =~ ~r/[\d\.\/]/ ->
         add_number(next, base, sign, number <> char)
 
-      decimal_points != nil && decimal_points > 1 ->
+      decimal_points != nil && decimal_points > 2 ->
         {String.length(number), :err}
 
       decimal_points != nil && decimal_points == 1 ->
@@ -51,19 +51,21 @@ defmodule Lexer.BasicTypes do
         {String.length(number), Token.add(:NUMBER, sign * float)}
 
       true ->
-        if number =~ ~r/\// do
-          rational = Rational.sigil_n(number, [])
-          {String.length(number), Token.add(:NUMBER, sign * rational)}
-        else
-          {integer, _} = Integer.parse(number, base)
-          {String.length(number), Token.add(:NUMBER, sign * integer)}
+        cond do
+          number =~ ~r/\// ->
+            rational = Rational.parse(number)
+            {String.length(number), Token.add(:NUMBER, sign * rational)}
+
+          true ->
+            {integer, _} = Integer.parse(number, base)
+            {String.length(number), Token.add(:NUMBER, sign * integer)}
         end
     end
   end
 
   def add_identifier([char | next], token \\ "") do
     cond do
-      char =~ ~r/[a-zA-Z\.\d_\->@]/ ->
+      char =~ ~r/[a-zA-Z\.\d_\->@#]/ ->
         add_identifier(next, token <> char)
 
       true ->
@@ -73,8 +75,8 @@ defmodule Lexer.BasicTypes do
             "or" -> :OR
             "not" -> :NOT
             "if" -> :IF
-            "while" -> :WHILE
-            "for" -> :FOR
+            "case" -> :CASE
+            "cond" -> :COND
             "true" -> :TRUE
             "false" -> :FALSE
             "prin" -> :PRIN
@@ -88,6 +90,7 @@ defmodule Lexer.BasicTypes do
             "dup" -> :DUP
             "over" -> :OVER
             "rep" -> :REP
+            "#" <> _ -> :ATOM
             _ -> :IDENTIFIER
           end
 

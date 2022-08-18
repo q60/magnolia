@@ -63,7 +63,11 @@ defmodule Lexer do
           Token.add(:MUL, h)
 
         "/" ->
-          Token.add(:DIV, h)
+          if Helpers.match_next("/", t) do
+            Helpers.comment(t)
+          else
+            Token.add(:DIV, h)
+          end
 
         "^" ->
           Token.add(:POW, h)
@@ -99,9 +103,6 @@ defmodule Lexer do
               token
           end
 
-        "#" ->
-          Helpers.comment(t)
-
         "\n" ->
           {:new_line, line + 1}
 
@@ -113,7 +114,7 @@ defmodule Lexer do
             h =~ ~r/\d/ ->
               BasicTypes.add_number(h, t, 1, line, position)
 
-            h =~ ~r/[a-zA-Z_@]/ ->
+            h =~ ~r/[a-zA-Z_@#]/ ->
               BasicTypes.add_identifier([h | t])
 
             true ->

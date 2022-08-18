@@ -1,4 +1,4 @@
 %{
   "dep_from_git": {:git, "https://github.com/q60/rational", "1b61e88e65ec1dfa45b9cd244da0ff0edde9b881", [tag: "1.0.1"]},
-  "rational": {:git, "https://github.com/q60/rational", "1b61e88e65ec1dfa45b9cd244da0ff0edde9b881", [tag: "1.0.1"]},
+  "rational": {:git, "https://github.com/q60/rational", "bb40f52491e7dfdbf62e87200c1864fb8809c962", [tag: "1.2.0"]},
 }

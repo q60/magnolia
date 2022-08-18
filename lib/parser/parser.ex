@@ -24,6 +24,14 @@ defmodule Parser do
       type when type in [:TRUE, :FALSE] ->
         eval(next, [String.to_atom(token.lexeme) | stack], dict)
 
+      :ATOM ->
+        atom =
+          token.lexeme
+          |> String.replace("#", "")
+          |> String.to_atom()
+
+        eval(next, [atom | stack], dict)
+
       :WORD ->
         {name, spec, code} = token.lexeme
         eval(next, stack, Map.put(dict, name, {spec, code}))

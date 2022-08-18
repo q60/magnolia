@@ -4,7 +4,7 @@ defmodule Magnolia.MixProject do
   def project do
     [
       app: :magnolia,
-      version: "0.6.0",
+      version: "0.7.0",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -24,7 +24,7 @@ defmodule Magnolia.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:rational, git: "https://github.com/q60/rational", tag: "1.0.1"}
+      {:rational, git: "https://github.com/q60/rational", tag: "1.2.0"}
     ]
   end
 end
